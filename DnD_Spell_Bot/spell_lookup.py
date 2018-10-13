@@ -30,13 +30,14 @@ subreddit = reddit.subreddit('DnD')
 test_subreddit = reddit.subreddit('pythonforengineers')
 
 
-comment_pre = "I noticed some spells in your post!\n\n"
-comment_post = "^(I am a bot, still in very early testing)"
 url_prefix = "http://forgottenrealms.wikia.com/wiki/"
+comment_pre = "I noticed some spells in your post, here are some links!\n\n"
+comment_post = "^(I am a bot, still in very early testing.  I'm pretty slow for now, I can only post once every 10 minutes. \
+If you want more info, or have suggestions, my github page is [here](https://github.com/ZatchBo/Reddit-Bots))"
 
 
 
-for post in subreddit.new(limit=10):
+for post in subreddit.new(limit=25):
     # Don't operate on the same post twice
     if post.id not in seen_posts:
         # Add to the list of posts to ignore
@@ -48,7 +49,7 @@ for post in subreddit.new(limit=10):
         # Scan for spell names
         # TODO - better way to do this?
         for spell in spell_list:
-            if re.search(spell, post.selftext, re.IGNORECASE):
+            if re.search(spell, post.selftext):
                 # Got a hit, add to the list of things to link to
                 reply_list.append(spell)
 
@@ -57,15 +58,16 @@ for post in subreddit.new(limit=10):
                 comment_links = comment_links + "["+ spell +"]("+ url_prefix + spell +")\n\n"
             comment = comment_pre + comment_links + comment_post
 
+            # Print for debug
             print("About to reply to post " + post.id  + ": "+ post.title + "\n" + post.selftext)
             print("Comment: " + comment)
             print("----------------------------------------------------------")
             print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
             print("----------------------------------------------------------")
 
-            for test_post in test_subreddit.new(limit=1):
-                test_post.reply(post.selftext +"\n\n\n"+ comment)
-                time.sleep(5)
+            #post.reply(comment)
+            # Sleep for a minute to stay good
+            #time.sleep(60*10)
 
 
 write_seen_posts()
