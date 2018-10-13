@@ -32,8 +32,7 @@ test_subreddit = reddit.subreddit('pythonforengineers')
 
 url_prefix = "http://forgottenrealms.wikia.com/wiki/"
 comment_pre = "I noticed some spells in your post, here are some links!\n\n"
-comment_post = "^(I am a bot, still in very early testing.  I'm pretty slow for now, I can only post once every 10 minutes. \
-If you want more info, or have suggestions, my github page is [here](https://github.com/ZatchBo/Reddit-Bots))"
+comment_post = "^(I am a bot, still in very early testing.  I'm pretty slow for now, I can only post once every 10 minutes.)"
 
 
 
@@ -66,8 +65,18 @@ for post in subreddit.new(limit=25):
             print("----------------------------------------------------------")
 
             #post.reply(comment)
-            # Sleep for a minute to stay good
+            # Sleep for a 10 min to stay good
             #time.sleep(60*10)
+
+            # DEBUG
+            for test_post in test_subreddit.new(limit=1):
+                x = post.title +"\n\n"+ post.selftext +"\n\n"
+                x = x+ "----------------------------------------------------------\n\n"
+                x = x+ "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n"
+                x = x+ "----------------------------------------------------------\n\n"
+                x = x+ comment
+                test_post.reply(x)
+                time.sleep(60*10)
 
 
 write_seen_posts()
