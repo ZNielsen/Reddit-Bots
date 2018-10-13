@@ -15,15 +15,17 @@ pkl_file = "seen.pkl"
 seen_posts = set()
 
 # Load the seen posts
-# if os.path.isfile(pkl_file):
-#     with open(pkl_file, 'rb') as fp:
-#         seen_posts = pickle.load(fp)
+if os.path.isfile(pkl_file):
+    with open(pkl_file, 'rb') as fp:
+        seen_posts = pickle.load(fp)
 # Write out seen comments
 @atexit.register
 def write_seen_posts():
     with open(pkl_file, 'wb') as fp:
         pickle.dump(seen_posts, fp)
 
+print("[DEBUG] seen posts: "+ str(seen_posts))
+print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
 
 reddit = praw.Reddit('spellbot-script')
 subreddit = reddit.subreddit('DnD')
