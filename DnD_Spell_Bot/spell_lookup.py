@@ -4,95 +4,158 @@ import atexit
 import praw
 import re
 import time
-from spells import spell_list
+import getpass
+from _spells import spell_list
 
 try:
     import cPickle as pickle
 except:
     import pickle
 
-pi1path = "/home/pi1/Documents/reddit-bots/DnD_Spell_Bot"
-pkl_file = pi1path+ "/seen.pkl"
-seen_posts = set()
 
-# Load the seen posts
-if os.path.isfile(pkl_file):
-    with open(pkl_file, 'rb') as fp:
+username = getpass.getuser()
+if username == 'z':
+    # Mint
+    path = "/home/z/Documents/reddit-bots/DnD_Spell_Bot"
+elif username == 'pi1':
+    # Pi
+    path = "/home/pi1/Documents/reddit-bots/DnD_Spell_Bot"
+elif username == 'cpzniels':
+    # Windows
+    pass
+
+p_pkl_name = "/p_seen.pkl"
+c_pkl_name = "/c_seen.pkl"
+t_pkl_name = "/time.pkl"
+p_pkl_file = path + p_pkl_name
+c_pkl_file = path + c_pkl_name
+t_pkl_file = path + t_pkl_name
+
+
+
+seen_posts = set()
+serviced_comments = set()
+
+# Load the cross-start info
+if os.path.isfile(p_pkl_file):
+    with open(p_pkl_file, 'rb') as fp:
         seen_posts = pickle.load(fp)
+if os.path.isfile(c_pkl_file):
+    with open(c_pkl_file, 'rb') as fp:
+        serviced_comments = pickle.load(fp)
+if os.path.isfile(t_pkl_file):
+    with open(t_pkl_file, 'r') as fp:
+        tt_post = fp.readline()
+
 # Write out seen comments
 @atexit.register
-def write_seen_posts():
-    with open(pkl_file, 'wb') as fp:
+def write_persistent_data():
+    with open(p_pkl_file, 'wb') as fp:
         pickle.dump(seen_posts, fp)
+    with open(c_pkl_file, 'wb') as fp:
+        pickle.dump(serviced_comments, fp)
+    with open(t_pkl_file, 'w') as fp:
+        fp.write(tt_post)
 
 print("[DEBUG] seen posts: "+ str(seen_posts))
 print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
+print("[DEBUG] serviced comments: "+ str(serviced_comments))
+print("[DEBUG] total of "+ str(len(serviced_comments)) +" serviced comments.")
+print("[DEBUG] time to next post: "+ str(tt_post))
+
 
 reddit = praw.Reddit('spellbot-script')
 subreddit = reddit.subreddit('DnD')
 test_subreddit = reddit.subreddit('pythonforengineers')
-
 
 url_prefix = "http://dnd5e.wikia.com/wiki/"
 comment_pre = "I noticed some spells in your post, here are some links!\n\n"
 comment_post = "^(I am a bot, still in very early testing.)"
 
 
+def are_spells_in_comments(text):
+    ret_val = []
+    for spell in spell_list:
+        if re.search(r'\b'+ spell +r'\b', text):
+            ret_val.append(spell)
+    return ret_val
 
-for post in subreddit.new(limit=100):
-    # Don't operate on the same post twice
-    if post.id not in seen_posts:
-        # Add to the list of posts to ignore
-        seen_posts.add(post.id)
+def make_bot_comment(list):
+    comment_links = ''
+    for spell in reply_list:
+        comment_links = comment_links + "["+ spell +"]("+ url_prefix + spell +")\n\n"
+    comment = comment_pre + comment_links + comment_post
+    return comment
 
-        reply_list = []
-        comment_links = ''
+def timer_can_post():
+    ret_val = False
+    if int(tt_post) < int(time.time()):
+        # Past our wait period, we can post
+        ret_val = True
+    return ret_val
 
-        # Scan for spell names
-        for spell in spell_list:
-            if re.search(spell, post.selftext):
-                # Got a hit, add to the list of things to link to
-                reply_list.append(spell)
+def update_post_timer():
+    tt_post = (time.time() + 600)
 
-        if len(reply_list) > 0:
-            for spell in reply_list:
-                comment_links = comment_links + "["+ spell +"]("+ url_prefix + spell +")\n\n"
-            comment = comment_pre + comment_links + comment_post
-
-            # Print for debug
-            print("About to reply to post " + post.id  + ": "+ post.title + "\n" + post.selftext)
-            print("Comment: " + comment)
-            print("----------------------------------------------------------")
-            print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-            print("----------------------------------------------------------")
-
-            #post.reply(comment)
-            # Sleep for a 10 min to stay good
-            #time.sleep(60*10)
-
-            # DEBUG
-            for test_post in test_subreddit.new(limit=1):
-                x = post.title +"\n\n"+ post.selftext +"\n\n"
-                x = x+ "----------------------------------------------------------\n\n"
-                x = x+ "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n"
-                x = x+ "----------------------------------------------------------\n\n"
-                x = x+ comment
-                test_post.reply(x)
-
-            break
-
-            time.sleep(60*10)
+def post_test_reply(post, bot_comment):
+    # Print for debug
+    print("About to reply to post " + post.id  + ": "+ post.title + "\n" + post.selftext)
+    print("Comment: " + bot_comment)
+    print("----------------------------------------------------------")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+    print("----------------------------------------------------------")
+    for test_post in test_subreddit.new(limit=1):
+        x = post.title +"\n\n"+ post.selftext +"\n\n"
+        x = x+ "----------------------------------------------------------\n\n"
+        x = x+ "++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n"
+        x = x+ "----------------------------------------------------------\n\n"
+        x = x+ bot_comment
+        #test_post.reply(x)
 
 
-#call_token = "!DnD_spell_bot"
-#
+
+# Comments - only post on request
+call_token = "!DnD_spell_bot"
 #for post in subreddit.hot():
-#    # Look for an explicit call in comments
-#    comments = post.comment.replace_more()
-#    for comment in comments:
-#        if re.search(call_token, comment.body, re.IGNORECASE):
-            
+for post in test_subreddit.new():
+    # Look for an explicit call in comments
+    post.comments.replace_more()
+    for comment in post.comments.list():
+        # Make sure we havn't serviced this comment yet
+        if comment.id not in serviced_comments:
+            if re.search(call_token, comment.body, re.IGNORECASE):
+                # Parse parent comment for spells
+                parent_comment = comment.parent()
+                reply_list = are_spells_in_comments(parent_comment.body)
+                if len(reply_list) > 0:
+                    bot_comment = make_bot_comment(reply_list)
+                else:
+                    bot_comment = "Hmm.. I don't see any spells.  Sorry about that.\n\n"+ comment_post
+
+                if timer_can_post():
+                    # Post reply to calling comment
+                    print("Posting a reply comment: "+ bot_comment)
+                    comment.reply(bot_comment)
+                    comment.upvote()
+                    serviced_comments.add(comment.id)
+                    update_post_timer()
 
 
-write_seen_posts()
 
+# # Posts - automatic posting
+# for post in subreddit.new(limit=100):
+#     # Don't operate on the same post twice
+#     if post.id not in seen_posts:
+#         # Add to the list of posts to ignore
+#         seen_posts.add(post.id)
+#
+#         # Scan for spell names
+#         reply_list = are_spells_in_comments(post.selftext)
+#         if len(reply_list) > 0:
+#             bot_comment = make_bot_comment(reply_list)
+#             #post.reply(bot_comment)
+#             post_test_reply(post, bot_comment)
+
+
+write_persistent_data()
+print("Python Done!")
