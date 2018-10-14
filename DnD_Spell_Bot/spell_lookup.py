@@ -11,7 +11,8 @@ try:
 except:
     import pickle
 
-pkl_file = "seen.pkl"
+pi1path = "/home/pi1/Documents/reddit-bots/DnD_Spell_Bot"
+pkl_file = pi1path+ "/seen.pkl"
 seen_posts = set()
 
 # Load the seen posts
@@ -32,13 +33,13 @@ subreddit = reddit.subreddit('DnD')
 test_subreddit = reddit.subreddit('pythonforengineers')
 
 
-url_prefix = "http://forgottenrealms.wikia.com/wiki/"
+url_prefix = "http://dnd5e.wikia.com/wiki/"
 comment_pre = "I noticed some spells in your post, here are some links!\n\n"
-comment_post = "^(I am a bot, still in very early testing.  I'm pretty slow for now, I can only post once every 10 minutes.)"
+comment_post = "^(I am a bot, still in very early testing.)"
 
 
 
-for post in subreddit.new(limit=25):
+for post in subreddit.new(limit=100):
     # Don't operate on the same post twice
     if post.id not in seen_posts:
         # Add to the list of posts to ignore
@@ -48,7 +49,6 @@ for post in subreddit.new(limit=25):
         comment_links = ''
 
         # Scan for spell names
-        # TODO - better way to do this?
         for spell in spell_list:
             if re.search(spell, post.selftext):
                 # Got a hit, add to the list of things to link to
@@ -78,7 +78,21 @@ for post in subreddit.new(limit=25):
                 x = x+ "----------------------------------------------------------\n\n"
                 x = x+ comment
                 test_post.reply(x)
-                time.sleep(60*10)
+
+            break
+
+            time.sleep(60*10)
+
+
+#call_token = "!DnD_spell_bot"
+#
+#for post in subreddit.hot():
+#    # Look for an explicit call in comments
+#    comments = post.comment.replace_more()
+#    for comment in comments:
+#        if re.search(call_token, comment.body, re.IGNORECASE):
+            
 
 
 write_seen_posts()
+
