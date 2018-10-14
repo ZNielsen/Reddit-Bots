@@ -5,6 +5,7 @@ import praw
 import re
 import time
 import getpass
+from collections import deque
 import _spells
 
 try:
@@ -26,13 +27,16 @@ elif username == 'cpzniels':
 
 p_pkl_name = "/p_seen.pkl"
 c_pkl_name = "/c_seen.pkl"
-t_name = "/time"
+q_pkl_name = "/queue.pkl"
+t_name     = "/time"
 p_pkl_file = path + p_pkl_name
 c_pkl_file = path + c_pkl_name
+q_pkl_file = path + q_pkl_name
 t_file     = path + t_name
 
 seen_posts = set()
 serviced_comments = set()
+post_deque = deque()
 tt_post = 1
 
 # Load the persistent info
@@ -42,6 +46,9 @@ if os.path.isfile(p_pkl_file):
 if os.path.isfile(c_pkl_file):
     with open(c_pkl_file, 'rb') as fp:
         serviced_comments = pickle.load(fp)
+if os.path.isfile(q_pkl_file):
+    with open(q_pkl_file, 'rb') as fp:
+        post_deque = pickle.load(fp)
 if os.path.isfile(t_file):
     with open(t_file, 'r') as fp:
         tt_post = fp.readline()
@@ -53,21 +60,22 @@ def write_persistent_data():
         pickle.dump(seen_posts, fp)
     with open(c_pkl_file, 'wb') as fp:
         pickle.dump(serviced_comments, fp)
+    with open(q_pkl_file, 'wb') as fp:
+        pickle.dump(post_deque, fp)
     with open(t_file, 'w') as fp:
         fp.write(str(tt_post))
 
-print("[DEBUG] seen posts: "+ str(seen_posts))
-print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
-print("[DEBUG] serviced comments: "+ str(serviced_comments))
-print("[DEBUG] total of "+ str(len(serviced_comments)) +" serviced comments.")
-print("[DEBUG] time to next post: "+ str(tt_post))
+class reply_object:
+    to_id = 0
+    text  = 0
+reply_obj = reply_object()
 
 
 reddit = praw.Reddit('spellbot-script')
 subreddit = reddit.subreddit('DnD')
 test_subreddit = reddit.subreddit('pythonforengineers')
 
-comment_pre = "I noticed some spells, here are some links!\n\n"
+comment_pre = "Here are some links for you:\n\n"
 comment_post = "^(I am a bot, still in very early testing.)"
 
 
@@ -101,6 +109,35 @@ def post_test_reply(post, bot_comment):
         x = x+ bot_comment
         #test_post.reply(x)
 
+def can_post_in():
+    global tt_post
+    return int(round(float(tt_post)))-int(round(time.time()))
+
+
+def post_from_queue():
+    global tt_post
+    try:
+        obj = post_deque.pop()
+        if can_post_in() < 0:
+            comment = reddit.comment(id=obj.to_id)
+            # Post reply to calling comment
+            print("Posting a reply comment: "+ obj.text)
+            comment.reply(obj.text)
+            comment.upvote()
+            serviced_comments.add(obj.to_id)
+            tt_post = (time.time() + 600)
+        else:
+            print("Too early to post.  Can post again in "+ str(can_post_in()) +" seconds.")
+    except:
+        print("Deque is empty")
+
+
+################################################################################
+print("[DEBUG] seen posts: "+ str(seen_posts))
+print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
+print("[DEBUG] serviced comments: "+ str(serviced_comments))
+print("[DEBUG] total of "+ str(len(serviced_comments)) +" serviced comments.")
+print("[DEBUG] time to next post: "+ str(can_post_in()) +" seconds.")
 
 
 # Comments - only post on request
@@ -111,8 +148,7 @@ for post in test_subreddit.new(limit=2):
     post.comments.replace_more()
     for comment in post.comments.list():
         # Make sure we havn't serviced this comment yet
-        #if comment.id not in serviced_comments:
-        if True:
+        if comment.id not in serviced_comments:
             if re.search(call_token, comment.body, re.IGNORECASE):
                 # Parse parent comment for spells
                 parent_comment = comment.parent()
@@ -121,19 +157,13 @@ for post in test_subreddit.new(limit=2):
                     bot_comment = make_bot_comment(reply_list)
                 else:
                     bot_comment = "Hmm.. I don't see any spells.  Sorry about that.\n\n"+ comment_post
-
-                if int(tt_post) < int(time.time()):
-                    # Post reply to calling comment
-                    print("Posting a reply comment: "+ bot_comment)
-                    comment.reply(bot_comment)
-                    comment.upvote()
-                    serviced_comments.add(comment.id)
-                    tt_post = (time.time() + 600)
-                else:
-                    # TODO - make some sort of posting queue
-                    pass
+                # Place reply into queue
+                reply_obj.to_id = comment.id
+                reply_obj.text  = bot_comment
+                post_deque.appendleft(reply_obj)
 
 
+post_from_queue()
 
 
 # # Posts - automatic posting
