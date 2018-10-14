@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+spell_url = "http://dnd5e.wikia.com/wiki/"
+
 spell_list = [
     "Abi-Dalzim’s Horrid Wilting",
     "Absorb Elements",

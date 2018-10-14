@@ -5,7 +5,7 @@ import praw
 import re
 import time
 import getpass
-from _spells import spell_list
+import _spells
 
 try:
     import cPickle as pickle
@@ -26,25 +26,24 @@ elif username == 'cpzniels':
 
 p_pkl_name = "/p_seen.pkl"
 c_pkl_name = "/c_seen.pkl"
-t_pkl_name = "/time.pkl"
+t_name = "/time"
 p_pkl_file = path + p_pkl_name
 c_pkl_file = path + c_pkl_name
-t_pkl_file = path + t_pkl_name
-
-
+t_file     = path + t_name
 
 seen_posts = set()
 serviced_comments = set()
+tt_post = 1
 
-# Load the cross-start info
+# Load the persistent info
 if os.path.isfile(p_pkl_file):
     with open(p_pkl_file, 'rb') as fp:
         seen_posts = pickle.load(fp)
 if os.path.isfile(c_pkl_file):
     with open(c_pkl_file, 'rb') as fp:
         serviced_comments = pickle.load(fp)
-if os.path.isfile(t_pkl_file):
-    with open(t_pkl_file, 'r') as fp:
+if os.path.isfile(t_file):
+    with open(t_file, 'r') as fp:
         tt_post = fp.readline()
 
 # Write out seen comments
@@ -54,8 +53,8 @@ def write_persistent_data():
         pickle.dump(seen_posts, fp)
     with open(c_pkl_file, 'wb') as fp:
         pickle.dump(serviced_comments, fp)
-    with open(t_pkl_file, 'w') as fp:
-        fp.write(tt_post)
+    with open(t_file, 'w') as fp:
+        fp.write(str(tt_post))
 
 print("[DEBUG] seen posts: "+ str(seen_posts))
 print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
@@ -68,14 +67,13 @@ reddit = praw.Reddit('spellbot-script')
 subreddit = reddit.subreddit('DnD')
 test_subreddit = reddit.subreddit('pythonforengineers')
 
-url_prefix = "http://dnd5e.wikia.com/wiki/"
-comment_pre = "I noticed some spells in your post, here are some links!\n\n"
+comment_pre = "I noticed some spells, here are some links!\n\n"
 comment_post = "^(I am a bot, still in very early testing.)"
 
 
 def are_spells_in_comments(text):
     ret_val = []
-    for spell in spell_list:
+    for spell in _spells.spell_list:
         if re.search(r'\b'+ spell +r'\b', text):
             ret_val.append(spell)
     return ret_val
@@ -83,19 +81,10 @@ def are_spells_in_comments(text):
 def make_bot_comment(list):
     comment_links = ''
     for spell in reply_list:
-        comment_links = comment_links + "["+ spell +"]("+ url_prefix + spell +")\n\n"
+        comment_links = comment_links + "["+ spell +"]("+ _spells.spell_url + spell +")\n\n"
     comment = comment_pre + comment_links + comment_post
     return comment
 
-def timer_can_post():
-    ret_val = False
-    if int(tt_post) < int(time.time()):
-        # Past our wait period, we can post
-        ret_val = True
-    return ret_val
-
-def update_post_timer():
-    tt_post = (time.time() + 600)
 
 def post_test_reply(post, bot_comment):
     # Print for debug
@@ -117,12 +106,13 @@ def post_test_reply(post, bot_comment):
 # Comments - only post on request
 call_token = "!DnD_spell_bot"
 #for post in subreddit.hot():
-for post in test_subreddit.new():
+for post in test_subreddit.new(limit=2):
     # Look for an explicit call in comments
     post.comments.replace_more()
     for comment in post.comments.list():
         # Make sure we havn't serviced this comment yet
-        if comment.id not in serviced_comments:
+        #if comment.id not in serviced_comments:
+        if True:
             if re.search(call_token, comment.body, re.IGNORECASE):
                 # Parse parent comment for spells
                 parent_comment = comment.parent()
@@ -132,13 +122,17 @@ for post in test_subreddit.new():
                 else:
                     bot_comment = "Hmm.. I don't see any spells.  Sorry about that.\n\n"+ comment_post
 
-                if timer_can_post():
+                if int(tt_post) < int(time.time()):
                     # Post reply to calling comment
                     print("Posting a reply comment: "+ bot_comment)
                     comment.reply(bot_comment)
                     comment.upvote()
                     serviced_comments.add(comment.id)
-                    update_post_timer()
+                    tt_post = (time.time() + 600)
+                else:
+                    # TODO - make some sort of posting queue
+                    pass
+
 
 
 
