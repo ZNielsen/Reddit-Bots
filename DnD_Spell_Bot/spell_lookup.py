@@ -27,7 +27,7 @@ elif username == 'cpzniels':
 
 p_pkl_name = "/p_seen.pkl"
 c_pkl_name = "/c_seen.pkl"
-q_pkl_name = "/queue.pkl"
+q_pkl_name = "/deque.pkl"
 t_name     = "/time"
 p_pkl_file = path + p_pkl_name
 c_pkl_file = path + c_pkl_name
@@ -38,6 +38,11 @@ seen_posts = set()
 serviced_comments = set()
 post_deque = deque()
 tt_post = 1
+
+class reply_object:
+    to_id = 0
+    text  = 0
+reply_obj = reply_object()
 
 # Load the persistent info
 if os.path.isfile(p_pkl_file):
@@ -65,11 +70,6 @@ def write_persistent_data():
     with open(t_file, 'w') as fp:
         fp.write(str(tt_post))
 
-class reply_object:
-    to_id = 0
-    text  = 0
-reply_obj = reply_object()
-
 
 reddit = praw.Reddit('spellbot-script')
 subreddit = reddit.subreddit('DnD')
@@ -82,6 +82,8 @@ comment_post = "^(I am a bot, still in very early testing.)"
 def are_spells_in_comments(text):
     ret_val = []
     for spell in _spells.spell_list:
+        # Word boundries -> Don't match the start of a word
+        # ex. Halloween linking to the spell Hallow
         if re.search(r'\b'+ spell +r'\b', text):
             ret_val.append(spell)
     return ret_val
@@ -128,16 +130,27 @@ def post_from_queue():
             tt_post = (time.time() + 600)
         else:
             print("Too early to post.  Can post again in "+ str(can_post_in()) +" seconds.")
-    except:
-        print("Deque is empty")
+    except Exception as e:
+        if e.__class__.__name__ == "IndexError":
+            print("Deque is empty")
+        elif re.match("RATELIMIT", str(e)):
+            print("Reddit is saying you are posting too fast - did you manually post?")
+            # Update the timer
+            num = [int(s) for s in str(e.message).split() if s.isdigit()]
+            tt_post = time.time() + (60* int(num[0]))
+        else:
+            print("[EXCEPTION]")
+            print(str(e))
+
+
 
 
 ################################################################################
-print("[DEBUG] seen posts: "+ str(seen_posts))
-print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
-print("[DEBUG] serviced comments: "+ str(serviced_comments))
-print("[DEBUG] total of "+ str(len(serviced_comments)) +" serviced comments.")
-print("[DEBUG] time to next post: "+ str(can_post_in()) +" seconds.")
+#print("[DEBUG] seen posts: "+ str(seen_posts))
+#print("[DEBUG] total of "+ str(len(seen_posts)) +" posts.")
+#print("[DEBUG] serviced comments: "+ str(serviced_comments))
+#print("[DEBUG] total of "+ str(len(serviced_comments)) +" serviced comments.")
+#print("[DEBUG] time to next post: "+ str(can_post_in()) +" seconds.")
 
 
 # Comments - only post on request
