@@ -155,11 +155,14 @@ def post_from_queue():
 
 # Comments - only post on request
 call_token = "!DnD_spell_bot"
-#for post in subreddit.hot():
-for post in test_subreddit.new(limit=2):
+comment_counter = 0
+post_counter    = 0
+for post in subreddit.hot():
+    post_counter += 1
     # Look for an explicit call in comments
     post.comments.replace_more()
     for comment in post.comments.list():
+        comment_counter += 1
         # Make sure we havn't serviced this comment yet
         if comment.id not in serviced_comments:
             if re.search(call_token, comment.body, re.IGNORECASE):
@@ -174,25 +177,7 @@ for post in test_subreddit.new(limit=2):
                 reply_obj.to_id = comment.id
                 reply_obj.text  = bot_comment
                 post_deque.appendleft(reply_obj)
-
-
 post_from_queue()
-
-
-# # Posts - automatic posting
-# for post in subreddit.new(limit=100):
-#     # Don't operate on the same post twice
-#     if post.id not in seen_posts:
-#         # Add to the list of posts to ignore
-#         seen_posts.add(post.id)
-#
-#         # Scan for spell names
-#         reply_list = are_spells_in_comments(post.selftext)
-#         if len(reply_list) > 0:
-#             bot_comment = make_bot_comment(reply_list)
-#             #post.reply(bot_comment)
-#             post_test_reply(post, bot_comment)
-
-
 write_persistent_data()
+print("Just parsed "+ str(comment_counter) +" comments and "+ str(post_counter) +" posts.")
 print("Python Done!")
