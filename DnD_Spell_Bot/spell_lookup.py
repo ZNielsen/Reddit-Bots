@@ -23,6 +23,7 @@ elif username == 'pi1':
     path = "/home/pi1/Documents/reddit-bots/DnD_Spell_Bot"
 elif username == 'cpzniels':
     # Windows
+    path = "C:\\Users\\cpzniels\\Documents\\my_proj\\Reddit-Bots\\DnD_Spell_Bot
     pass
 
 p_pkl_name = "/p_seen.pkl"
